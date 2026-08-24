@@ -1,0 +1,41 @@
+# --- Node.js (Backend & Frontend) ---
+node_modules/
+npm-debug.log
+yarn-error.log
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- Next.js (Frontend) ---
+.next/
+out/
+build/
+.swc/
+
+# --- Python (ML Engine) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Jupyter Notebooks (if DA/DS uses them)
+.ipynb_checkpoints/
+
+# --- Data Files (Avoid pushing large datasets) ---
+*.csv
+*.dat
+*.out
+*.log
+
+# --- General OS Files ---
+.DS_Store
+Thumbs.db
