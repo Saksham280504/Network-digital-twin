@@ -1,0 +1,31 @@
+{
+  "nodes": [
+    { "id": "R1",  "label": "Router 1",  "x": 0.15, "y": 0.22 },
+    { "id": "R2",  "label": "Router 2",  "x": 0.40, "y": 0.10 },
+    { "id": "R3",  "label": "Router 3",  "x": 0.68, "y": 0.15 },
+    { "id": "R4",  "label": "Router 4",  "x": 0.10, "y": 0.50 },
+    { "id": "R5",  "label": "Router 5",  "x": 0.38, "y": 0.42 },
+    { "id": "R6",  "label": "Router 6",  "x": 0.65, "y": 0.40 },
+    { "id": "R7",  "label": "Router 7",  "x": 0.85, "y": 0.28 },
+    { "id": "R8",  "label": "Router 8",  "x": 0.22, "y": 0.75 },
+    { "id": "R9",  "label": "Router 9",  "x": 0.55, "y": 0.78 },
+    { "id": "R10", "label": "Router 10", "x": 0.82, "y": 0.65 }
+  ],
+  "edges": [
+    { "id": "e_R1_R2",  "source": "R1", "target": "R2",  "capacity_mbps": 1000, "throughput_mbps": 120, "delay_ms": 5.2  },
+    { "id": "e_R2_R3",  "source": "R2", "target": "R3",  "capacity_mbps": 1000, "throughput_mbps": 89,  "delay_ms": 3.1  },
+    { "id": "e_R3_R7",  "source": "R3", "target": "R7",  "capacity_mbps": 500,  "throughput_mbps": 450, "delay_ms": 12.5 },
+    { "id": "e_R1_R4",  "source": "R1", "target": "R4",  "capacity_mbps": 500,  "throughput_mbps": 50,  "delay_ms": 2.8  },
+    { "id": "e_R2_R5",  "source": "R2", "target": "R5",  "capacity_mbps": 1000, "throughput_mbps": 200, "delay_ms": 4.5  },
+    { "id": "e_R3_R6",  "source": "R3", "target": "R6",  "capacity_mbps": 1000, "throughput_mbps": 750, "delay_ms": 18.3 },
+    { "id": "e_R4_R5",  "source": "R4", "target": "R5",  "capacity_mbps": 500,  "throughput_mbps": 30,  "delay_ms": 1.9  },
+    { "id": "e_R5_R6",  "source": "R5", "target": "R6",  "capacity_mbps": 1000, "throughput_mbps": 580, "delay_ms": 14.1 },
+    { "id": "e_R6_R7",  "source": "R6", "target": "R7",  "capacity_mbps": 500,  "throughput_mbps": 60,  "delay_ms": 3.3  },
+    { "id": "e_R4_R8",  "source": "R4", "target": "R8",  "capacity_mbps": 500,  "throughput_mbps": 180, "delay_ms": 6.7  },
+    { "id": "e_R5_R9",  "source": "R5", "target": "R9",  "capacity_mbps": 500,  "throughput_mbps": 420, "delay_ms": 11.2 },
+    { "id": "e_R6_R10", "source": "R6", "target": "R10", "capacity_mbps": 1000, "throughput_mbps": 900, "delay_ms": 22.6 },
+    { "id": "e_R7_R10", "source": "R7", "target": "R10", "capacity_mbps": 500,  "throughput_mbps": 110, "delay_ms": 4.8  },
+    { "id": "e_R8_R9",  "source": "R8", "target": "R9",  "capacity_mbps": 500,  "throughput_mbps": 70,  "delay_ms": 2.3  },
+    { "id": "e_R9_R10", "source": "R9", "target": "R10", "capacity_mbps": 1000, "throughput_mbps": 340, "delay_ms": 8.9  }
+  ]
+}
