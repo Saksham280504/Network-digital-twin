@@ -56,32 +56,45 @@ _state: Dict[str, Any] = {
 }
 
 
-def load_all_artifacts() -> None:
-    """Loads all 5 trained model pipelines, the label encoder, and benchmark JSON."""
+def _load_models_once() -> bool:
+    """Attempts to unpickle encoder and all 5 model pipelines. Returns True if all 5 succeed."""
     if os.path.exists(ENCODER_PATH):
-        _state["encoder"] = joblib.load(ENCODER_PATH)
-        log.info(f"Loaded LabelEncoder -> {ENCODER_PATH}")
+        try:
+            _state["encoder"] = joblib.load(ENCODER_PATH)
+            log.info(f"Loaded LabelEncoder -> {ENCODER_PATH}")
+        except Exception as exc:
+            log.warning(f"Failed to unpickle LabelEncoder ({exc})")
+            _state["encoder"] = None
 
     loaded_models = {}
     for key in MODEL_KEYS:
         m_path = os.path.join(MODEL_DIR, f"{key}.joblib")
         if os.path.exists(m_path):
-            loaded_models[key] = joblib.load(m_path)
-            log.info(f"Loaded model [{key}] -> {m_path}")
-
-    # Fallback if only legacy congestion_model.joblib exists
-    legacy_path = os.path.join(MODEL_DIR, "congestion_model.joblib")
-    if not loaded_models and os.path.exists(legacy_path):
-        loaded_models["xgboost"] = joblib.load(legacy_path)
-        loaded_models["mpnn"] = loaded_models["xgboost"]
-        log.info(f"Loaded legacy model -> {legacy_path}")
+            try:
+                loaded_models[key] = joblib.load(m_path)
+                log.info(f"Loaded model [{key}] -> {m_path}")
+            except Exception as exc:
+                log.warning(f"Version mismatch loading model [{key}]: {exc}")
 
     _state["models"] = loaded_models
-    _state["loaded"] = len(loaded_models) > 0 and _state["encoder"] is not None
+    _state["loaded"] = len(loaded_models) == len(MODEL_KEYS) and _state["encoder"] is not None
 
     if os.path.exists(BENCHMARK_PATH):
         with open(BENCHMARK_PATH, "r", encoding="utf-8") as f:
             _state["benchmarks"] = json.load(f)
+
+    return _state["loaded"]
+
+
+def load_all_artifacts() -> None:
+    """Loads all 5 trained model pipelines; auto-retrains in-place if sklearn version differs."""
+    all_ok = _load_models_once()
+    if not all_ok:
+        log.info("Re-training 5 models natively for current Python/scikit-learn runtime ...")
+        import train as train_module
+        train_module.main(train_module.DATA_PATH)
+        _load_models_once()
+        _state["loaded"] = len(_state["models"]) > 0 and _state["encoder"] is not None
 
 
 @asynccontextmanager
@@ -111,6 +124,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.api_route("/", methods=["GET", "HEAD"], tags=["Monitoring"])
+async def root():
+    return {
+        "status": "ok",
+        "service": "NDT Multi-Model ML Engine",
+        "model_loaded": _state["loaded"],
+        "loaded_models": list(_state["models"].keys()),
+    }
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Monitoring"])

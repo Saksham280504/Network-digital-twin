@@ -28,9 +28,12 @@ import time
 import numpy as np
 import pandas as pd
 import joblib
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -282,6 +285,8 @@ def build_model_zoo(n_classes: int) -> dict:
 
 
 def plot_comparative_confusion_matrices(benchmarks: dict, class_names: list, save_path: str) -> None:
+    if plt is None:
+        return
     fig, axes = plt.subplots(1, 5, figsize=(22, 4.5))
     short_labels = ["Uncong.", "Balanced", "Mod. Cong.", "High Cong."]
 
