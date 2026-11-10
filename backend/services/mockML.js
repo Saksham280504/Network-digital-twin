@@ -63,7 +63,7 @@ async function predictCongestion(edges, modelName = 'mpnn') {
     const response = await axios.post(
       ML_PREDICT_URL,
       { edges, model_name: modelName },
-      { timeout: 4500 }
+      { timeout: 12000 }
     );
     return {
       predictions: response.data.predictions || [],

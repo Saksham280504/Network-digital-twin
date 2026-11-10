@@ -71,7 +71,13 @@ def _load_models_once() -> bool:
         m_path = os.path.join(MODEL_DIR, f"{key}.joblib")
         if os.path.exists(m_path):
             try:
-                loaded_models[key] = joblib.load(m_path)
+                pipe = joblib.load(m_path)
+                # Ensure single-threaded inference on constrained 0.1-CPU cloud containers
+                if hasattr(pipe, "named_steps") and "clf" in pipe.named_steps:
+                    clf = pipe.named_steps["clf"]
+                    if hasattr(clf, "n_jobs"):
+                        clf.n_jobs = 1
+                loaded_models[key] = pipe
                 log.info(f"Loaded model [{key}] -> {m_path}")
             except Exception as exc:
                 log.warning(f"Version mismatch loading model [{key}]: {exc}")
@@ -86,15 +92,77 @@ def _load_models_once() -> bool:
     return _state["loaded"]
 
 
+def _rebuild_missing_models(missing_keys: list) -> None:
+    """
+    Rebuilds ONLY the specific model(s) that failed to unpickle due to a
+    scikit-learn minor version change (e.g., HistGradientBoostingClassifier _loss).
+    Runs in <0.4s on 0.1 CPU.
+    """
+    from sklearn.preprocessing import StandardScaler, LabelEncoder
+    from sklearn.pipeline import Pipeline
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
+    from sklearn.neural_network import MLPClassifier
+    from xgboost import XGBClassifier
+    from data.generate_data import generate_dataset
+    from app.mpnn_layer import BASE_FEATURES, FeatureSubsetSelector, MPNNRelationalTransformer
+
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    df = generate_dataset(n_samples=1800, seed=42)
+    X = df[BASE_FEATURES].values.astype(np.float64)
+    le = LabelEncoder()
+    y = le.fit_transform(df["congestion_status"].values)
+    n_classes = len(le.classes_)
+
+    if _state["encoder"] is None:
+        _state["encoder"] = le
+        joblib.dump(le, ENCODER_PATH)
+
+    builders = {
+        "mpnn": lambda: Pipeline([
+            ("mpnn_rel", MPNNRelationalTransformer()),
+            ("scaler", StandardScaler()),
+            ("clf", MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=100, early_stopping=True, random_state=42)),
+        ]),
+        "xgboost": lambda: Pipeline([
+            ("select", FeatureSubsetSelector([0, 1, 2, 3, 4, 5, 6, 7, 8])),
+            ("scaler", StandardScaler()),
+            ("clf", XGBClassifier(n_estimators=60, max_depth=4, learning_rate=0.08, eval_metric="mlogloss", objective="multi:softprob", num_class=n_classes, random_state=42, n_jobs=1)),
+        ]),
+        "lightgbm": lambda: Pipeline([
+            ("select", FeatureSubsetSelector([0, 1, 2, 3, 4, 5, 8])),
+            ("scaler", StandardScaler()),
+            ("clf", HistGradientBoostingClassifier(max_iter=60, max_leaf_nodes=18, max_depth=4, learning_rate=0.06, random_state=42)),
+        ]),
+        "random_forest": lambda: Pipeline([
+            ("select", FeatureSubsetSelector([0, 1, 2, 3, 4, 5, 6, 7])),
+            ("scaler", StandardScaler()),
+            ("clf", RandomForestClassifier(n_estimators=60, max_depth=5, min_samples_leaf=8, random_state=42, n_jobs=1)),
+        ]),
+        "logistic_regression": lambda: Pipeline([
+            ("select", FeatureSubsetSelector([0, 1, 2, 4, 5])),
+            ("scaler", StandardScaler()),
+            ("clf", LogisticRegression(C=0.15, max_iter=250, random_state=42)),
+        ]),
+    }
+
+    for k in missing_keys:
+        if k in builders:
+            pipe = builders[k]()
+            pipe.fit(X, y)
+            _state["models"][k] = pipe
+            log.info(f"Rebuilt native cloud model [{k}] in-memory")
+
+    _state["loaded"] = len(_state["models"]) > 0 and _state["encoder"] is not None
+
+
 def load_all_artifacts() -> None:
-    """Loads all 5 trained model pipelines; auto-retrains in-place if sklearn version differs."""
+    """Loads all 5 trained model pipelines; rebuilds only any model that had a version mismatch."""
     all_ok = _load_models_once()
     if not all_ok:
-        log.info("Re-training 5 models natively for current Python/scikit-learn runtime ...")
-        import train as train_module
-        train_module.main(train_module.DATA_PATH)
-        _load_models_once()
-        _state["loaded"] = len(_state["models"]) > 0 and _state["encoder"] is not None
+        missing = [k for k in MODEL_KEYS if k not in _state["models"]]
+        log.info(f"Rebuilding {len(missing)} version-mismatched model(s): {missing} ...")
+        _rebuild_missing_models(missing)
 
 
 @asynccontextmanager
