@@ -1,85 +1,75 @@
-# API Contract: Network Digital Twin
+# API Contract: Network Digital Twin (v2.0 — Multi-Model & Paper Extension)
 
 This document defines the JSON data schemas used for communication between the Node.js backend (SDE) and the Python FastAPI ML engine (DA/DS).
 
-## 1. Congestion Prediction Endpoint
+## 1. Multi-Model Congestion Prediction Endpoint
 
 - **Method:** `POST`
-- **URL Path:** `/predict-congestion` (or similar endpoint on the ML engine)
-- **Description:** The Node.js backend sends the current state of network edges (throughput, delay) to the ML engine to retrieve a congestion prediction for each edge.
+- **URL Path:** `/predict-congestion`
+- **Description:** The Node.js backend sends the current state of network edges to the ML engine along with an optional `model_name` (`"mpnn"`, `"xgboost"`, `"lightgbm"`, `"random_forest"`, or `"logistic_regression"`). The ML engine dynamically constructs the live graph adjacency matrix, computes 1-hop neighbor aggregations (`neighbor_mean_util`, `neighbor_max_delay`, `source_degree`, `target_degree`), runs all 5 models to detect cross-model disagreements, and returns predictions for the active model plus per-edge voting across all 5 models.
 
-### Request Payload (Node.js -> FastAPI)
-
-The request should contain an array of edges with their real-time metrics.
+### Request Payload (`Node.js -> FastAPI`)
 
 ```json
 {
+  "model_name": "mpnn",
   "edges": [
     {
-      "id": "edge_1_2",
-      "source": "node_1",
-      "target": "node_2",
-      "throughput_mbps": 120.5,
-      "delay_ms": 15.2
-    },
-    {
-      "id": "edge_2_3",
-      "source": "node_2",
-      "target": "node_3",
-      "throughput_mbps": 45.0,
-      "delay_ms": 5.1
+      "id": "e_R1_R2",
+      "source": "R1",
+      "target": "R2",
+      "throughput_mbps": 900.0,
+      "delay_ms": 45.2,
+      "capacity_mbps": 1000
     }
   ]
 }
 ```
 
-**Field Types:**
-- `id` (String): Unique identifier for the edge.
-- `source` (String): ID of the source node.
-- `target` (String): ID of the destination node.
-- `throughput_mbps` (Float): Current throughput in Mbps.
-- `delay_ms` (Float): Current delay in milliseconds.
-
-### Response Payload (FastAPI -> Node.js)
-
-The ML engine must respond with an array containing the predicted congestion status for each edge provided in the request.
+### Response Payload (`FastAPI -> Node.js`)
 
 ```json
 {
+  "active_model": "mpnn",
+  "inference_latency_ms": 0.221,
   "predictions": [
     {
-      "edge_id": "edge_1_2",
+      "edge_id": "e_R1_R2",
       "congestion_status": "Highly Congested",
-      "probability": 0.89
-    },
-    {
-      "edge_id": "edge_2_3",
-      "congestion_status": "Uncongested",
-      "probability": 0.12
+      "probability": 0.9912,
+      "disagreement": false,
+      "all_model_votes": {
+        "mpnn":                { "congestion_status": "Highly Congested", "probability": 0.9912 },
+        "xgboost":             { "congestion_status": "Highly Congested", "probability": 0.9854 },
+        "lightgbm":            { "congestion_status": "Highly Congested", "probability": 0.9881 },
+        "random_forest":       { "congestion_status": "Highly Congested", "probability": 0.9120 },
+        "logistic_regression": { "congestion_status": "Highly Congested", "probability": 0.9640 }
+      },
+      "telemetry_enriched": {
+        "edge_id": "e_R1_R2",
+        "utilization_ratio": 0.9,
+        "jitter_ms": 5.31,
+        "packet_loss_pct": 4.82,
+        "source_degree": 2,
+        "target_degree": 3,
+        "neighbor_mean_util": 0.64,
+        "neighbor_max_delay": 24.5
+      }
     }
-  ]
+  ],
+  "model_comparison_live": {
+    "active_model": "mpnn",
+    "total_edges": 15,
+    "disagreement_count": 2,
+    "disagreement_edges": []
+  }
 }
 ```
-
-**Field Types:**
-- `edge_id` (String): Matches the `id` from the request.
-- `congestion_status` (String): The predicted class. Valid values: `"Highly Congested"`, `"Moderately Congested"`, `"Balanced"`, `"Uncongested"`.
-- `probability` (Float): Confidence score of the prediction (0.0 to 1.0).
 
 ---
 
-## 2. Graph Topology Format (Static JSON)
+## 2. Model Benchmark Specifications Endpoint
 
-To ensure the frontend UI and the ML model training use the exact same graph structures, the DA/DS will provide the initial graph topologies as static JSON files (e.g., `topology_er.json`, `topology_ba.json`).
-
-```json
-{
-  "nodes": [
-    { "id": "node_1", "label": "Router 1" },
-    { "id": "node_2", "label": "Router 2" }
-  ],
-  "edges": [
-    { "id": "edge_1_2", "source": "node_1", "target": "node_2" }
-  ]
-}
-```
+- **Method:** `GET`
+- **URL Path:** `/models/specs`
+- **Description:** Returns test accuracy, macro-F1, precision, recall, ROC-AUC, 3-fold cross-validation scores, single-batch inference latency ($\text{ms}$), serialized model size ($\text{KB}$), $4 \times 4$ confusion matrices, and permutation feature importances across all 5 trained models.

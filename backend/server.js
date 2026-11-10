@@ -2,17 +2,35 @@ const express = require('express');
 const cors = require('cors');
 
 const networkRoutes = require('./routes/network');
+const { triggerBackgroundWakeup } = require('./services/mockML');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 // ----------------------------------------------------------------
-// Middleware
+// Middleware (Production + Local CORS)
 // ----------------------------------------------------------------
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
+  origin: (origin, callback) => {
+    // Allow server-to-server / health checks (no origin), explicit origins, and Vercel/Render deployments
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com')
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 
@@ -41,4 +59,7 @@ app.listen(PORT, () => {
   console.log(`   Analyze:  POST /api/analyze`);
   console.log(`   Fault:    POST /api/fault`);
   console.log(`   Reset:    POST /api/reset\n`);
+
+  // Proactively wake up the FastAPI ML container on backend startup
+  triggerBackgroundWakeup();
 });

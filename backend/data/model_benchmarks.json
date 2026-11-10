@@ -1,0 +1,286 @@
+{
+  "class_order": [
+    "Uncongested",
+    "Balanced",
+    "Moderately Congested",
+    "Highly Congested"
+  ],
+  "features": [
+    "throughput_mbps",
+    "capacity_mbps",
+    "delay_ms",
+    "utilization_ratio",
+    "jitter_ms",
+    "packet_loss_pct",
+    "source_degree",
+    "target_degree",
+    "neighbor_mean_util",
+    "neighbor_max_delay"
+  ],
+  "dataset_rows": 12000,
+  "test_rows": 2400,
+  "default_model": "mpnn",
+  "models": {
+    "mpnn": {
+      "key": "mpnn",
+      "name": "Graph MPNN (Paper Architecture)",
+      "short_name": "Graph MPNN",
+      "family": "Graph Neural / Message Passing",
+      "complexity": "O(L * (|V| + |E|) * d^2)",
+      "description": "4-layer Message Passing Neural Network (MPNN) implementing Section IV-D of NDT.pdf. Aggregates 1-hop neighbor utilization, delay backpressure, and vertex degree constraints (2 <= deg(v) <= 9) into relational embeddings before deep MLP classification.",
+      "strengths": [
+        "Highest accuracy on cascading neighbor congestion",
+        "Captures 1-hop & 2-hop router backpressure (m_i = sum m_ij)",
+        "Proactively reroutes before local link buffer overflows"
+      ],
+      "limitations": [
+        "Higher training compute & matrix multiplication overhead",
+        "Requires graph adjacency topology during inference"
+      ],
+      "accuracy": 0.9604,
+      "precision_macro": 0.9555,
+      "recall_macro": 0.9572,
+      "f1_macro": 0.9563,
+      "roc_auc": 0.9978,
+      "log_loss": 0.0931,
+      "cv_mean": 0.9628,
+      "cv_std": 0.0013,
+      "inference_latency_ms": 0.226,
+      "train_time_s": 1.577,
+      "model_size_kb": 302.8,
+      "confusion_matrix": [
+        [663, 22, 0, 0],
+        [11, 599, 24, 0],
+        [0, 14, 371, 13],
+        [0, 0, 11, 672]
+      ],
+      "per_class": {
+        "Uncongested": { "precision": 0.9837, "recall": 0.9679, "f1": 0.9757, "support": 685 },
+        "Balanced": { "precision": 0.9433, "recall": 0.9448, "f1": 0.9441, "support": 634 },
+        "Moderately Congested": { "precision": 0.9138, "recall": 0.9322, "f1": 0.9229, "support": 398 },
+        "Highly Congested": { "precision": 0.981, "recall": 0.9839, "f1": 0.9825, "support": 683 }
+      },
+      "feature_importances": {
+        "throughput_mbps": 0.0638,
+        "capacity_mbps": 0.0398,
+        "delay_ms": 0.0995,
+        "utilization_ratio": 0.536,
+        "jitter_ms": 0.0439,
+        "packet_loss_pct": 0.0293,
+        "source_degree": 0.0,
+        "target_degree": 0.0,
+        "neighbor_mean_util": 0.1609,
+        "neighbor_max_delay": 0.0269
+      }
+    },
+    "xgboost": {
+      "key": "xgboost",
+      "name": "XGBoost Classifier",
+      "short_name": "XGBoost",
+      "family": "Gradient Boosted Decision Trees (Depth-wise)",
+      "complexity": "O(K * d * log N)",
+      "description": "Depth-wise regularized gradient boosted decision trees (multi:softprob). Captures sharp non-linear thresholds across utilization, queueing delay, and neighbor load.",
+      "strengths": [
+        "Strong accuracy on tabular link telemetry",
+        "L1/L2 tree regularization prevents overfitting",
+        "Captures non-linear delay vs. utilization interactions"
+      ],
+      "limitations": [
+        "Step-function axis-aligned splits rather than smooth relational embeddings",
+        "Slightly higher inference latency than histogram/linear models"
+      ],
+      "accuracy": 0.9646,
+      "precision_macro": 0.9594,
+      "recall_macro": 0.9618,
+      "f1_macro": 0.9605,
+      "roc_auc": 0.9975,
+      "log_loss": 0.0986,
+      "cv_mean": 0.9614,
+      "cv_std": 0.0024,
+      "inference_latency_ms": 1.081,
+      "train_time_s": 0.655,
+      "model_size_kb": 889.0,
+      "confusion_matrix": [
+        [674, 11, 0, 0],
+        [16, 595, 23, 0],
+        [0, 18, 375, 5],
+        [0, 0, 12, 671]
+      ],
+      "per_class": {
+        "Uncongested": { "precision": 0.9768, "recall": 0.9839, "f1": 0.9804, "support": 685 },
+        "Balanced": { "precision": 0.9535, "recall": 0.9385, "f1": 0.9459, "support": 634 },
+        "Moderately Congested": { "precision": 0.9146, "recall": 0.9422, "f1": 0.9282, "support": 398 },
+        "Highly Congested": { "precision": 0.9926, "recall": 0.9824, "f1": 0.9875, "support": 683 }
+      },
+      "feature_importances": {
+        "throughput_mbps": 0.0113,
+        "capacity_mbps": 0.0021,
+        "delay_ms": 0.1082,
+        "utilization_ratio": 0.6196,
+        "jitter_ms": 0.1371,
+        "packet_loss_pct": 0.0,
+        "source_degree": 0.0072,
+        "target_degree": 0.0052,
+        "neighbor_mean_util": 0.1093,
+        "neighbor_max_delay": 0.0
+      }
+    },
+    "lightgbm": {
+      "key": "lightgbm",
+      "name": "LightGBM (Histogram GBDT)",
+      "short_name": "LightGBM",
+      "family": "Gradient Boosted Decision Trees (Leaf-wise Histogram)",
+      "complexity": "O(#bins * d)",
+      "description": "Leaf-wise histogram-binned gradient boosting classifier. Discretizes continuous telemetry into 255 histogram bins for ultra-fast splitting and low memory footprint.",
+      "strengths": [
+        "Fastest tree-ensemble training and low inference latency",
+        "Memory-efficient histogram binning ideal for edge IoT gateways",
+        "High precision on local link saturation regimes"
+      ],
+      "limitations": [
+        "Histogram quantization slightly smooths fine-grained neighbor boundaries",
+        "Can overfit small datasets if max_leaf_nodes is unconstrained"
+      ],
+      "accuracy": 0.9637,
+      "precision_macro": 0.9592,
+      "recall_macro": 0.9608,
+      "f1_macro": 0.96,
+      "roc_auc": 0.9974,
+      "log_loss": 0.1012,
+      "cv_mean": 0.9603,
+      "cv_std": 0.0022,
+      "inference_latency_ms": 6.197,
+      "train_time_s": 1.997,
+      "model_size_kb": 609.0,
+      "confusion_matrix": [
+        [673, 12, 0, 0],
+        [19, 597, 18, 0],
+        [0, 19, 374, 5],
+        [0, 0, 14, 669]
+      ],
+      "per_class": {
+        "Uncongested": { "precision": 0.9725, "recall": 0.9825, "f1": 0.9775, "support": 685 },
+        "Balanced": { "precision": 0.9506, "recall": 0.9416, "f1": 0.9461, "support": 634 },
+        "Moderately Congested": { "precision": 0.9212, "recall": 0.9397, "f1": 0.9303, "support": 398 },
+        "Highly Congested": { "precision": 0.9926, "recall": 0.9795, "f1": 0.986, "support": 683 }
+      },
+      "feature_importances": {
+        "throughput_mbps": 0.0168,
+        "capacity_mbps": 0.0034,
+        "delay_ms": 0.1016,
+        "utilization_ratio": 0.6373,
+        "jitter_ms": 0.115,
+        "packet_loss_pct": 0.0042,
+        "source_degree": 0.0,
+        "target_degree": 0.0,
+        "neighbor_mean_util": 0.1217,
+        "neighbor_max_delay": 0.0
+      }
+    },
+    "random_forest": {
+      "key": "random_forest",
+      "name": "Random Forest Classifier",
+      "short_name": "Random Forest",
+      "family": "Parallel Bagging Tree Ensemble",
+      "complexity": "O(T * d * depth)",
+      "description": "Bootstrap-aggregated ensemble of independent decision trees trained on local link and router degree features without multi-hop neighbor message passing.",
+      "strengths": [
+        "High robustness to noisy sensor/telemetry spikes (variance reduction)",
+        "Trivially parallelizable across CPU cores",
+        "Well-calibrated conservative probability estimates"
+      ],
+      "limitations": [
+        "Misses upstream neighbor cascade congestion when local utilization looks moderate",
+        "Larger serialized model footprint across 150 trees"
+      ],
+      "accuracy": 0.9329,
+      "precision_macro": 0.9261,
+      "recall_macro": 0.9253,
+      "f1_macro": 0.9255,
+      "roc_auc": 0.9936,
+      "log_loss": 0.2055,
+      "cv_mean": 0.9435,
+      "cv_std": 0.0012,
+      "inference_latency_ms": 28.97,
+      "train_time_s": 0.303,
+      "model_size_kb": 816.1,
+      "confusion_matrix": [
+        [652, 33, 0, 0],
+        [21, 584, 29, 0],
+        [0, 45, 343, 10],
+        [0, 0, 23, 660]
+      ],
+      "per_class": {
+        "Uncongested": { "precision": 0.9688, "recall": 0.9518, "f1": 0.9602, "support": 685 },
+        "Balanced": { "precision": 0.8822, "recall": 0.9211, "f1": 0.9012, "support": 634 },
+        "Moderately Congested": { "precision": 0.8684, "recall": 0.8618, "f1": 0.8651, "support": 398 },
+        "Highly Congested": { "precision": 0.9851, "recall": 0.9663, "f1": 0.9756, "support": 683 }
+      },
+      "feature_importances": {
+        "throughput_mbps": 0.0171,
+        "capacity_mbps": 0.0011,
+        "delay_ms": 0.4229,
+        "utilization_ratio": 0.3619,
+        "jitter_ms": 0.1745,
+        "packet_loss_pct": 0.0214,
+        "source_degree": 0.0011,
+        "target_degree": 0.0,
+        "neighbor_mean_util": 0.0,
+        "neighbor_max_delay": 0.0
+      }
+    },
+    "logistic_regression": {
+      "key": "logistic_regression",
+      "name": "Logistic Regression (Linear Baseline)",
+      "short_name": "Logistic Reg.",
+      "family": "Generalized Linear Model (Multinomial Softmax)",
+      "complexity": "O(C * d)",
+      "description": "Multinomial softmax linear classifier operating on standardized local edge features. Serves as the ultra-low-latency control-plane baseline.",
+      "strengths": [
+        "Fastest sub-millisecond inference latency (< 0.15 ms)",
+        "Tiny memory footprint for constrained microcontroller/IoT nodes",
+        "Directly interpretable linear feature weights"
+      ],
+      "limitations": [
+        "Cannot model non-linear M/M/1 queueing knees or multiplicative neighbor cascades",
+        "Lowest F1-score on borderline Balanced vs. Moderately Congested links"
+      ],
+      "accuracy": 0.9313,
+      "precision_macro": 0.9229,
+      "recall_macro": 0.924,
+      "f1_macro": 0.9234,
+      "roc_auc": 0.9939,
+      "log_loss": 0.1891,
+      "cv_mean": 0.9406,
+      "cv_std": 0.0035,
+      "inference_latency_ms": 0.136,
+      "train_time_s": 0.037,
+      "model_size_kb": 1.7,
+      "confusion_matrix": [
+        [663, 22, 0, 0],
+        [32, 565, 37, 0],
+        [0, 43, 346, 9],
+        [0, 0, 22, 661]
+      ],
+      "per_class": {
+        "Uncongested": { "precision": 0.954, "recall": 0.9679, "f1": 0.9609, "support": 685 },
+        "Balanced": { "precision": 0.8968, "recall": 0.8912, "f1": 0.894, "support": 634 },
+        "Moderately Congested": { "precision": 0.8543, "recall": 0.8693, "f1": 0.8618, "support": 398 },
+        "Highly Congested": { "precision": 0.9866, "recall": 0.9678, "f1": 0.9771, "support": 683 }
+      },
+      "feature_importances": {
+        "throughput_mbps": 0.2317,
+        "capacity_mbps": 0.0942,
+        "delay_ms": 0.1905,
+        "utilization_ratio": 0.0,
+        "jitter_ms": 0.3777,
+        "packet_loss_pct": 0.1059,
+        "source_degree": 0.0,
+        "target_degree": 0.0,
+        "neighbor_mean_util": 0.0,
+        "neighbor_max_delay": 0.0
+      }
+    }
+  }
+}
+

@@ -1,0 +1,26 @@
+services:
+  # 1. Python FastAPI Multi-Model ML Engine
+  - type: web
+    name: ndt-ml-engine
+    runtime: python
+    rootDir: ml-engine
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+  # 2. Node.js Express Control-Plane & Routing Backend
+  - type: web
+    name: ndt-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: ML_BASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+

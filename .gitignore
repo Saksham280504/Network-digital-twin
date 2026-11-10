@@ -9,6 +9,7 @@ yarn-error.log
 .env.production.local
 
 # --- Next.js (Frontend) ---
+node_modules/
 .next/
 out/
 build/
