@@ -83,13 +83,13 @@ def _load_models_once() -> bool:
                 log.warning(f"Version mismatch loading model [{key}]: {exc}")
 
     _state["models"] = loaded_models
-    _state["loaded"] = len(loaded_models) == len(MODEL_KEYS) and _state["encoder"] is not None
+    _state["loaded"] = len(loaded_models) > 0 and _state["encoder"] is not None
 
     if os.path.exists(BENCHMARK_PATH):
         with open(BENCHMARK_PATH, "r", encoding="utf-8") as f:
             _state["benchmarks"] = json.load(f)
 
-    return _state["loaded"]
+    return len(loaded_models) == len(MODEL_KEYS) and _state["encoder"] is not None
 
 
 def _rebuild_missing_models(missing_keys: list) -> None:
@@ -108,7 +108,7 @@ def _rebuild_missing_models(missing_keys: list) -> None:
     from app.mpnn_layer import BASE_FEATURES, FeatureSubsetSelector, MPNNRelationalTransformer
 
     os.makedirs(MODEL_DIR, exist_ok=True)
-    df = generate_dataset(n_samples=1800, seed=42)
+    df = generate_dataset(rows_per_regime_per_edge=30)
     X = df[BASE_FEATURES].values.astype(np.float64)
     le = LabelEncoder()
     y = le.fit_transform(df["congestion_status"].values)
